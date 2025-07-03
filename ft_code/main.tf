@@ -115,6 +115,7 @@ resource "aws_instance" "microservice1" {
   subnet_id     = aws_subnet.subnet_b.id
   security_groups = [aws_security_group.instance_sg.name]
   iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
+depends_on = [aws_sqs_queue.sqs]
 
 user_data = <<-EOF
               #!/bin/bash
@@ -128,7 +129,7 @@ user_data = <<-EOF
 
               app = Flask(__name__)
               sqs = boto3.client('sqs', region_name='us-east-1') 
-              QUEUE_URL = "${aws_sqs_queue.my_queue.id}"
+              QUEUE_URL = "${aws_sqs_queue.sqs.id}"
 
               @app.route("/ingest", methods=["POST"])
               def ingest():
