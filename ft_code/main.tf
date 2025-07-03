@@ -114,6 +114,7 @@ resource "aws_instance" "microservice1" {
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.subnet_b.id
   security_groups = [aws_security_group.instance_sg.name]
+  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
 
   user_data = <<-EOF
               #!/bin/bash
@@ -129,6 +130,7 @@ resource "aws_instance" "microservice2" {
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.subnet_b.id
   security_groups = [aws_security_group.instance_sg.name]
+  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
 
   user_data = <<-EOF
               #!/bin/bash
