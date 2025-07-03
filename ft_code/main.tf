@@ -116,12 +116,40 @@ resource "aws_instance" "microservice1" {
   security_groups = [aws_security_group.instance_sg.name]
   iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
 
-  user_data = <<-EOF
+user_data = <<-EOF
               #!/bin/bash
-              echo "Hello from instance" > /var/www/html/index.html
-              yum install -y httpd
-              systemctl start httpd
-              systemctl enable httpd
+              yum update -y
+              yum install -y python3 pip
+              pip3 install flask boto3
+
+              cat <<EOPY > /home/ec2-user/app.py
+              from flask import Flask, request, jsonify
+              import boto3
+
+              app = Flask(__name__)
+              sqs = boto3.client('sqs', region_name='us-east-1') 
+              QUEUE_URL = "${aws_sqs_queue.my_queue.id}"
+
+              @app.route("/ingest", methods=["POST"])
+              def ingest():
+                  data = request.get_json()
+                  if not data:
+                      return jsonify({"error": "Invalid JSON"}), 400
+
+                  try:
+                      sqs.send_message(
+                          QueueUrl=QUEUE_URL,
+                          MessageBody=str(data)
+                      )
+                      return jsonify({"status": "Message sent"}), 200
+                  except Exception as e:
+                      return jsonify({"error": str(e)}), 500
+
+              if __name__ == "__main__":
+                  app.run(host="0.0.0.0", port=80)
+              EOPY
+
+              nohup python3 /home/ec2-user/app.py &
               EOF
 }
 
