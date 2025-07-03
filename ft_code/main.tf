@@ -110,7 +110,6 @@ resource "aws_lb_listener" "listener" {
 }
 
 resource "aws_instance" "microservice1" {
-  count         = 1
   ami           = "ami-0c55b159cbfafe1f0" 
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.subnet_b.id
@@ -126,7 +125,6 @@ resource "aws_instance" "microservice1" {
 }
 
 resource "aws_instance" "microservice2" {
-  count         = 1
   ami           = "ami-0c55b159cbfafe1f0" 
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.subnet_b.id
