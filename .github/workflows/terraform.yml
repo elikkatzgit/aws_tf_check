@@ -35,7 +35,7 @@ jobs:
       run: terraform init
 
     - name: Terraform Validate
-      run: terraform validate -check
+      run: terraform validate
       working-directory: ft_code
       
     # Checks that all Terraform configuration files adhere to a canonical format
