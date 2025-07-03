@@ -15,6 +15,26 @@ resource "aws_iam_role" "ec2_role" {
   })
 }
 
+resource "aws_iam_policy" "ecr_ec2_sqs_admin" {
+  name        = "ECR_EC2_SQS_AdminPolicy"
+  description = "Admin access to ECR, EC2, and SQS"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = [
+          "ecr:*",
+          "ec2:*",
+          "sqs:*"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy_attachment" "attach_policy" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = aws_iam_policy.ecr_ec2_sqs_admin.arn
