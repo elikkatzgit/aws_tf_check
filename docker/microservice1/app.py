@@ -33,4 +33,19 @@ def submit():
         if data["token"] != EXPECTED_TOKEN:
             return jsonify({"error": "Invalid token"}), 403
 
-        # Remove token befor
+        # Remove token before sending
+        clean_data = {k: v for k, v in data.items() if k != "token"}
+
+        # Push to SQS
+        sqs.send_message(
+            QueueUrl=SQS_QUEUE_URL,
+            MessageBody=json.dumps(clean_data)
+        )
+
+        return jsonify({"status": "success"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
