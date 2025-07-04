@@ -1,52 +1,36 @@
+from flask import Flask, request, jsonify
 import boto3
-import json
-import time
 import os
-import uuid
+import json
 
-# ENV vars
-QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
-S3_BUCKET = os.environ.get("S3_BUCKET_NAME")
+app = Flask(__name__)
 
-# Clients
-sqs = boto3.client('sqs')
-s3 = boto3.client('s3')
+# Load env vars
+SECRET_NAME = os.environ.get("SECRET_NAME")
+SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
+REGION = os.environ.get("AWS_REGION", "us-east-1")
 
-def poll_sqs_and_push_to_s3():
-    while True:
-        response = sqs.receive_message(
-            QueueUrl=QUEUE_URL,
-            MaxNumberOfMessages=10,
-            WaitTimeSeconds=10
-        )
+# Init AWS clients
+session = boto3.session.Session(region_name=REGION)
+secrets_client = session.client('secretsmanager')
+sqs = session.client('sqs')
 
-        messages = response.get('Messages', [])
-        if not messages:
-            print("No messages, waiting...")
-            time.sleep(5)
-            continue
+# Cache the token
+def get_secret_token():
+    response = secrets_client.get_secret_value(SecretId=SECRET_NAME)
+    secret_string = response['SecretString']
+    return json.loads(secret_string).get("token")
 
-        for msg in messages:
-            try:
-                message_body = msg['Body']
-                file_key = f"messages/{uuid.uuid4()}.json"
+EXPECTED_TOKEN = get_secret_token()
 
-                # Store in S3
-                s3.put_object(
-                    Bucket=S3_BUCKET,
-                    Key=file_key,
-                    Body=message_body,
-                    ContentType='application/json'
-                )
-                print(f"Stored message to S3: {file_key}")
+@app.route("/submit", methods=["POST"])
+def submit():
+    try:
+        data = request.get_json()
+        if not data or "token" not in data:
+            return jsonify({"error": "Missing token"}), 400
 
-                # Delete from SQS
-                sqs.delete_message(
-                    QueueUrl=QUEUE_URL,
-                    ReceiptHandle=msg['ReceiptHandle']
-                )
-            except Exception as e:
-                print(f"Error processing message: {e}")
+        if data["token"] != EXPECTED_TOKEN:
+            return jsonify({"error": "Invalid token"}), 403
 
-if __name__ == "__main__":
-    poll_sqs_and_push_to_s3()
+        # Remove token befor
