@@ -1,0 +1,59 @@
+name: Build and Push Docker Image to ECR
+
+on:
+  push:
+    paths:
+      - 'docker/**'
+  workflow_dispatch:
+    inputs:
+      microservice:
+        description: 'microservice1 or microservice2'
+        required: true
+      image_version:
+        description: 'Docker image version (e.g., 1.0.0)'
+        required: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: us-east-1
+      ACCOUNT_ID: <your_aws_account_id>  # 👈 Replace with your AWS Account ID
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set image and repo names
+        run: |
+          echo "REPO_NAME=${{ github.event.inputs.microservice }}" >> $GITHUB_ENV
+          echo "IMAGE=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${{ github.event.inputs.microservice }}" >> $GITHUB_ENV
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create ECR repository if missing
+        run: |
+          aws ecr describe-repositories --repository-names $REPO_NAME \
+          || aws ecr create-repository --repository-name $REPO_NAME --region $AWS_REGION
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | \
+          docker login --username AWS --password-stdin $IMAGE
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t $IMAGE:${{ github.event.inputs.image_version }} \
+            -f ./docker/${{ github.event.inputs.microservice }}/Dockerfile \
+            ./docker/${{ github.event.inputs.microservice }}
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push $IMAGE:${{ github.event.inputs.image_version }}
