@@ -1,0 +1,60 @@
+name: Deploy Microservices to EC2 VMs
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_version:
+        description: 'Docker image version to deploy (e.g., 1.0.0)'
+        required: true
+
+jobs:
+  deploy-microservice1:
+    name: Deploy microservice1 to EC2-A
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2-A
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_A_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_A_SSH_KEY }}
+          script: |
+            AWS_REGION=us-east-1
+            ACCOUNT_ID=<your_aws_account_id>
+            VERSION=${{ github.event.inputs.image_version }}
+
+            echo "Login to ECR..."
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+            echo "Deploying microservice1..."
+            docker pull $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/microservice1:$VERSION
+            docker stop microservice1 || true
+            docker rm microservice1 || true
+            docker run -d --name microservice1 -p 8080:80 $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/microservice1:$VERSION
+
+  deploy-microservice2:
+    name: Deploy microservice2 to EC2-B
+    runs-on: ubuntu-latest
+    needs: deploy-microservice1
+
+    steps:
+      - name: Deploy to EC2-B
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_B_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_B_SSH_KEY }}
+          script: |
+            AWS_REGION=us-east-1
+            ACCOUNT_ID=<your_aws_account_id>
+            VERSION=${{ github.event.inputs.image_version }}
+
+            echo "Login to ECR..."
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+            echo "Deploying microservice2..."
+            docker pull $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/microservice2:$VERSION
+            docker stop microservice2 || true
+            docker rm microservice2 || true
+            docker run -d --name microservice2 -p 8080:80 $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/microservice2:$VERSION
